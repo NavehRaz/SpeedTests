@@ -1,0 +1,4 @@
+{
+    "python.defaultInterpreterPath": "~/SRvenv/bin/python",
+    "python.terminal.activateEnvironment": true,
+} 
