@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import time
 import warnings
+import traceback
 from SRtools import presets
 import speedTestSRclass as stsr
 
@@ -63,7 +64,7 @@ def test_adaptive_vs_nonadaptive_with_params(preset_name, n=40000, variations=[0
         
 
         # Get configuration parameters
-        config_params = presets.get_config_params(preset_name, time_unit=time_unit)
+        config_params = presets.get_config_params(preset_name, time_unit=time_unit, verbose=verbose)
 
         nsteps = config_params['nsteps']
         time_step_multiplier = config_params['time_step_multiplier']
@@ -218,6 +219,8 @@ def test_adaptive_vs_nonadaptive_with_params(preset_name, n=40000, variations=[0
                 except Exception as e:
                     if verbose:
                         print(f"  ❌ ERROR: {e}")
+                        print(f"  Full traceback:")
+                        print(traceback.format_exc())
                     
                     # Store error result
                     test_result = {
@@ -271,6 +274,8 @@ def test_adaptive_vs_nonadaptive_with_params(preset_name, n=40000, variations=[0
     except Exception as e:
         if verbose:
             print(f"❌ Error testing preset '{preset_name}': {e}")
+            print(f"Full traceback:")
+            print(traceback.format_exc())
         
         # Return empty DataFrame with correct columns if there's an overall error
         return pd.DataFrame(columns=['preset_name', 'n', 'step_size', 'adaptive_step_divisor', 'theta', 
@@ -516,6 +521,8 @@ def test_adaptive_vs_nonadaptive_with_custom_params(theta_dict, n=40000, variati
                 except Exception as e:
                     if verbose:
                         print(f"  ❌ ERROR: {e}")
+                        print(f"  Full traceback:")
+                        print(traceback.format_exc())
                     
                     # Store error result
                     test_result = {
@@ -569,6 +576,8 @@ def test_adaptive_vs_nonadaptive_with_custom_params(theta_dict, n=40000, variati
     except Exception as e:
         if verbose:
             print(f"❌ Error testing custom parameters: {e}")
+            print(f"Full traceback:")
+            print(traceback.format_exc())
         
         # Return empty DataFrame with correct columns if there's an overall error
         return pd.DataFrame(columns=['preset_name', 'n', 'step_size', 'adaptive_step_divisor', 'theta', 
@@ -695,3 +704,75 @@ def run_multiple_preset_tests(preset_names, n=40000, variations=[0.95, 0.9, 0.8,
                                    'runtime_nonadaptive', 'blue_reference_runtime', 
                                    'sim_same_runtime_adaptive', 'sim_same_runtime_nonadaptive',
                                    'pass_adaptive', 'pass_nonadaptive']) 
+
+def merge_csv_files_in_folder(folder_path, output_file="combined_results.csv", output_folder=None, progress_bar=True):
+    """
+    Merge all CSV files in a specified folder into one combined CSV file.
+    
+    Args:
+        folder_path (str): Path to the folder containing CSV files
+        output_file (str): Name of the output combined CSV file
+        output_folder (str): Optional folder to save the combined CSV file to
+        progress_bar (bool): Whether to show progress bar during processing
+        
+    Returns:
+        pandas.DataFrame: Combined DataFrame
+    """
+    import glob
+    import os
+    from tqdm import tqdm
+    
+    # Ensure folder path exists
+    if not os.path.exists(folder_path):
+        print(f"Error: Folder {folder_path} does not exist")
+        return pd.DataFrame()
+    
+    # Find all CSV files in the folder
+    csv_pattern = os.path.join(folder_path, "*.csv")
+    csv_files = glob.glob(csv_pattern)
+    
+    if not csv_files:
+        print(f"No CSV files found in folder: {folder_path}")
+        return pd.DataFrame()
+    
+    print(f"Found {len(csv_files)} CSV files in {folder_path}:")
+    for file in csv_files:
+        print(f"  - {os.path.basename(file)}")
+    
+    # Read and combine all CSV files
+    dfs = []
+    if progress_bar:
+        csv_files_iter = tqdm(csv_files, desc="Reading CSV files")
+    else:
+        csv_files_iter = csv_files
+        
+    for file in csv_files_iter:
+        try:
+            df = pd.read_csv(file)
+            dfs.append(df)
+            if not progress_bar:
+                print(f"Successfully read: {os.path.basename(file)} ({len(df)} rows)")
+        except Exception as e:
+            print(f"Error reading {os.path.basename(file)}: {e}")
+            print(f"Full traceback:")
+            print(traceback.format_exc())
+    
+    if not dfs:
+        print("No valid CSV files could be read")
+        return pd.DataFrame()
+    
+    # Combine all DataFrames
+    combined_df = pd.concat(dfs, ignore_index=True)
+    
+    # Save combined results
+    if output_folder is not None:
+        # Ensure output folder exists
+        os.makedirs(output_folder, exist_ok=True)
+        output_path = os.path.join(output_folder, output_file)
+    else:
+        output_path = os.path.join(folder_path, output_file)
+    
+    combined_df.to_csv(output_path, index=False)
+    print(f"Combined {len(combined_df)} rows into: {output_path}")
+    
+    return combined_df

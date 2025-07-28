@@ -1,4 +1,7 @@
 {
     "python.defaultInterpreterPath": "~/SRvenv/bin/python",
     "python.terminal.activateEnvironment": true,
-} 
+    "files.watcherExclude": {
+      "**/metric_tests/**": true
+    }
+  }

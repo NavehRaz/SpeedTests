@@ -16,7 +16,7 @@ def main():
     
 
     n_jobs = 1440
-    job_name = 'testMEtrics'
+    job_name = 'speedTests'
     memory = '0.8'
     folder = 'SpeedTests/metric_tests'
     name = 'test_metrics'
@@ -42,7 +42,7 @@ def main():
 
 
     #create MCMC specific folders
-    test_results_folder = os.path.join(submission_folder, "test_results_fine")
+    test_results_folder = os.path.join(submission_folder, "test_results")
     os.makedirs(test_results_folder, exist_ok=True)
 
     for preset in presets.get_preset_names():
