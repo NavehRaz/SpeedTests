@@ -120,6 +120,14 @@ def getSpeedTestSR(
             time_step_multiplier = int(np.ceil(nsteps / 6000))
             nsteps = int(np.ceil(total_steps / time_step_multiplier))
         # Recalculate step_size to be exact
+        if (nsteps * time_step_multiplier) ==0:
+            print('nsteps * time_step_multiplier is 0')
+            print('nsteps:', nsteps)
+            print('time_step_multiplier:', time_step_multiplier)
+            print('t_end:', t_end)
+            print('step_size:', step_size)
+            print('total_steps:', total_steps)
+            raise ValueError('nsteps * time_step_multiplier is 0')
         step_size = t_end / (nsteps * time_step_multiplier)
 
     sim = SpeedTestSR(
@@ -321,7 +329,10 @@ def death_times_accelerator(s,dt,t,eta0,eta_var,beta0,beta_var,kappa0,kappa_var,
                     break
             j += 1
         death_times.append(j * dt)
-        events.append(int(x >= xc))
+        if x >= xc:
+            events.append(1)
+        else:
+            events.append(0)
     
     return np.array(death_times), np.array(events)
 
@@ -359,7 +370,10 @@ def death_times_accelerator2(s, dt, t, eta, eta_var, beta, beta_var, kappa, kapp
                         break
                 j += 1
             death_times.append(j * dt)
-            events.append(int(x >= xc))
+            if x >= xc:
+                events.append(1)
+            else:
+                events.append(0)
         return death_times, events
 
     n_jobs = os.cpu_count()
@@ -415,7 +429,10 @@ def death_times_adaptive(s, dt, t, eta0, eta_var, beta0, beta_var, kappa0, kappa
                     break
             j += 1
         death_times.append(j * dt)
-        events.append(int(x >= xc))
+        if x >= xc:
+            events.append(1)
+        else:
+            events.append(0)
     
     return np.array(death_times), np.array(events)
 

@@ -50,20 +50,25 @@ def main():
     time_units = ['days']
     n_values = [20000, 40000]
     variations = [0.8, 0.9, 0.95, 0.98, 1.02, 1.05, 1.1, 1.2]
-
-    # Calculate which combination of parameters to use based on index
-    # Each test is run 10 times (for variations), so we need to divide by 10 to get the combination index
-    combination_index = index // 10
+    
+    n_repeats = 10
 
     # Calculate the total number of combinations
-    total_combinations = len(step_sizes) * len(adaptive_step_divisors) * len(time_units) * len(n_values)
+    total_combinations = len(step_sizes) * len(adaptive_step_divisors) * len(time_units) * len(n_values) * len(variations) * n_repeats
 
     # Check if index is valid
-    if combination_index >= total_combinations:
-        print(f"Error: Index {index} is out of range. Maximum valid index is {total_combinations * 10 - 1}")
+    if index >= total_combinations:
+        print(f"Error: Index {index} is out of range. Maximum valid index is {total_combinations - 1}")
         sys.exit(1)
 
-    # Calculate which step_size, adaptive_step_divisor, time_unit, and n to use
+    # Calculate which step_size, adaptive_step_divisor, time_unit, n, variation, and repeat to use
+    # First, determine which repeat this is
+    repeat_index = index % n_repeats
+    
+    # Then calculate the parameter combination (divide by n_repeats to get the base combination)
+    combination_index = index // n_repeats
+    
+    # Now calculate the parameter indices from the combination_index
     step_size_index = combination_index % len(step_sizes)
     remaining_combinations = combination_index // len(step_sizes)
     adaptive_step_divisor_index = remaining_combinations % len(adaptive_step_divisors)
@@ -71,7 +76,8 @@ def main():
     time_unit_index = remaining_combinations % len(time_units)
     remaining_combinations = remaining_combinations // len(time_units)
     n_index = remaining_combinations % len(n_values)
-    variation_index = remaining_combinations // len(n_values)
+    remaining_combinations = remaining_combinations // len(n_values)
+    variation_index = remaining_combinations % len(variations)
 
     # Get the actual parameter values
     step_size = step_sizes[step_size_index]
@@ -86,14 +92,14 @@ def main():
     print(f"  Time unit: {time_unit}")
     print(f"  N: {n_value}")
     print(f"  Variation: {variation_value}")
-    print(f"  Combination index: {combination_index}")
+    print(f"  Repeat: {repeat_index + 1}/{n_repeats}")
 
     # Run the test with the new parameters
     df = t.test_adaptive_vs_nonadaptive_with_params(
         preset, 
         n=n_value, 
         variations=variation_value, 
-        verbose=False, 
+        verbose=True, 
         save_results=True, 
         index=index, 
         results_path=results_path,
