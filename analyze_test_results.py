@@ -467,6 +467,7 @@ def aggregate_test_results(df_or_csv, output_csv=None, include_config_summary=Fa
     Returns:
         pandas.DataFrame: Aggregated DataFrame with means, stds, and pass percentages
     """
+    import numpy as np
     print("\n" + "="*80)
     print("AGGREGATING TEST RESULTS BY CONFIGURATION")
     print("="*80)
@@ -498,76 +499,121 @@ def aggregate_test_results(df_or_csv, output_csv=None, include_config_summary=Fa
     print(f"\nData distribution before filtering:")
     print(f"Rows with 'ERROR' in baysian_distance_adaptive: {(df['baysian_distance_adaptive'] == 'ERROR').sum()}")
     print(f"Rows with 'ERROR' in baysian_distance_nonadaptive: {(df['baysian_distance_nonadaptive'] == 'ERROR').sum()}")
+    print(f"Rows with -inf in reference_baysian_distance_adaptive: {(df['reference_baysian_distance_adaptive'] == -np.inf).sum()}")
+    print(f"Rows with -inf in reference_baysian_distance_nonadaptive: {(df['reference_baysian_distance_nonadaptive'] == -np.inf).sum()}")
     
-    # Filter out error rows for numerical calculations
-    df_numeric = df[df['baysian_distance_adaptive'] != 'ERROR'].copy()
-    df_numeric = df_numeric[df_numeric['baysian_distance_nonadaptive'] != 'ERROR'].copy()
+    # Create separate dataframes for adaptive and non-adaptive tests
+    # Filter out error rows and -inf reference values for each method separately
+    df_adaptive = df[df['baysian_distance_adaptive'] != 'ERROR'].copy()
+    df_adaptive = df_adaptive[~df_adaptive['reference_baysian_distance_adaptive'].isin([-np.inf, '-inf'])].copy()
     
-    df_numeric['baysian_distance_adaptive'] = pd.to_numeric(df_numeric['baysian_distance_adaptive'], errors='coerce')
-    df_numeric['baysian_distance_nonadaptive'] = pd.to_numeric(df_numeric['baysian_distance_nonadaptive'], errors='coerce')
-    df_numeric['reference_baysian_distance_adaptive'] = pd.to_numeric(df_numeric['reference_baysian_distance_adaptive'], errors='coerce')
-    df_numeric['reference_baysian_distance_nonadaptive'] = pd.to_numeric(df_numeric['reference_baysian_distance_nonadaptive'], errors='coerce')
+    df_nonadaptive = df[df['baysian_distance_nonadaptive'] != 'ERROR'].copy()
+    df_nonadaptive = df_nonadaptive[~df_nonadaptive['reference_baysian_distance_nonadaptive'].isin([-np.inf, '-inf'])].copy()
     
-    print(f"Rows after removing 'ERROR': {len(df_numeric)}")
+    # For overall counting, we need tests where both methods are valid
+    df_both_valid = df[df['baysian_distance_adaptive'] != 'ERROR'].copy()
+    df_both_valid = df_both_valid[df_both_valid['baysian_distance_nonadaptive'] != 'ERROR'].copy()
+    df_both_valid = df_both_valid[~df_both_valid['reference_baysian_distance_adaptive'].isin([-np.inf, '-inf'])].copy()
+    df_both_valid = df_both_valid[~df_both_valid['reference_baysian_distance_nonadaptive'].isin([-np.inf, '-inf'])].copy()
     
-    # Calculate differences
-    df_numeric['baysian_distance_adaptive_diff'] = (
-        df_numeric['reference_baysian_distance_adaptive'] - df_numeric['baysian_distance_adaptive']
+    # Convert to numeric for each dataframe separately
+    df_adaptive['baysian_distance_adaptive'] = pd.to_numeric(df_adaptive['baysian_distance_adaptive'], errors='coerce')
+    df_adaptive['reference_baysian_distance_adaptive'] = pd.to_numeric(df_adaptive['reference_baysian_distance_adaptive'], errors='coerce')
+    df_adaptive['runtime_adaptive'] = pd.to_numeric(df_adaptive['runtime_adaptive'], errors='coerce')
+    
+    df_nonadaptive['baysian_distance_nonadaptive'] = pd.to_numeric(df_nonadaptive['baysian_distance_nonadaptive'], errors='coerce')
+    df_nonadaptive['reference_baysian_distance_nonadaptive'] = pd.to_numeric(df_nonadaptive['reference_baysian_distance_nonadaptive'], errors='coerce')
+    df_nonadaptive['runtime_nonadaptive'] = pd.to_numeric(df_nonadaptive['runtime_nonadaptive'], errors='coerce')
+    
+    # Convert both_valid dataframe for overall statistics
+    df_both_valid['baysian_distance_adaptive'] = pd.to_numeric(df_both_valid['baysian_distance_adaptive'], errors='coerce')
+    df_both_valid['baysian_distance_nonadaptive'] = pd.to_numeric(df_both_valid['baysian_distance_nonadaptive'], errors='coerce')
+    df_both_valid['reference_baysian_distance_adaptive'] = pd.to_numeric(df_both_valid['reference_baysian_distance_adaptive'], errors='coerce')
+    df_both_valid['reference_baysian_distance_nonadaptive'] = pd.to_numeric(df_both_valid['reference_baysian_distance_nonadaptive'], errors='coerce')
+    df_both_valid['runtime_adaptive'] = pd.to_numeric(df_both_valid['runtime_adaptive'], errors='coerce')
+    df_both_valid['runtime_nonadaptive'] = pd.to_numeric(df_both_valid['runtime_nonadaptive'], errors='coerce')
+    
+    print(f"Valid adaptive tests: {len(df_adaptive)}")
+    print(f"Valid non-adaptive tests: {len(df_nonadaptive)}")
+    print(f"Tests where both methods are valid: {len(df_both_valid)}")
+    
+    # Calculate differences from reference for both_valid dataframe
+    df_both_valid['baysian_distance_adaptive_diff'] = (
+        df_both_valid['reference_baysian_distance_adaptive'] - df_both_valid['baysian_distance_adaptive']
     )
-    df_numeric['baysian_distance_nonadaptive_diff'] = (
-        df_numeric['reference_baysian_distance_nonadaptive'] - df_numeric['baysian_distance_nonadaptive']
+    df_both_valid['baysian_distance_nonadaptive_diff'] = (
+        df_both_valid['reference_baysian_distance_nonadaptive'] - df_both_valid['baysian_distance_nonadaptive']
     )
-    
-    print(f"Valid numeric rows: {len(df_numeric)}")
     
     # Show grouping information
     print(f"\nGrouping by: {agg_columns}")
-    print(f"Number of unique groups: {df_numeric.groupby(agg_columns).ngroups}")
+    print(f"Number of unique groups: {df_both_valid.groupby(agg_columns).ngroups}")
     
     # Show sample of groups for debugging
-    sample_groups = df_numeric.groupby(agg_columns).size().head(10)
+    sample_groups = df_both_valid.groupby(agg_columns).size().head(10)
     print(f"Sample group sizes:")
     print(sample_groups)
     
-    # Prepare aggregation dictionary
-    agg_dict = {
+    # Aggregate adaptive statistics (only on valid adaptive tests)
+    adaptive_agg_dict = {
         'baysian_distance_adaptive': ['mean', 'std'],
-        'baysian_distance_nonadaptive': ['mean', 'std'],
         'reference_baysian_distance_adaptive': ['first', 'mean', 'std'],
-        'reference_baysian_distance_nonadaptive': ['first', 'mean', 'std'],
-        'baysian_distance_adaptive_diff': ['mean', 'std'],
-        'baysian_distance_nonadaptive_diff': ['mean', 'std'],
         'runtime_adaptive': ['mean', 'std'],
+        'theta': 'first'
+    }
+    
+    adaptive_aggregated = df_adaptive.groupby(agg_columns).agg(adaptive_agg_dict).round(4)
+    adaptive_aggregated.columns = ['_'.join(col).strip() for col in adaptive_aggregated.columns]
+    
+    # Aggregate non-adaptive statistics (only on valid non-adaptive tests)
+    nonadaptive_agg_dict = {
+        'baysian_distance_nonadaptive': ['mean', 'std'],
+        'reference_baysian_distance_nonadaptive': ['first', 'mean', 'std'],
         'runtime_nonadaptive': ['mean', 'std'],
         'theta': 'first'
     }
     
-    # Aggregate by configuration
-    aggregated = df_numeric.groupby(agg_columns).agg(agg_dict).round(4)
+    nonadaptive_aggregated = df_nonadaptive.groupby(agg_columns).agg(nonadaptive_agg_dict).round(4)
+    nonadaptive_aggregated.columns = ['_'.join(col).strip() for col in nonadaptive_aggregated.columns]
     
-    # Flatten column names first
-    aggregated.columns = ['_'.join(col).strip() for col in aggregated.columns]
+    # Aggregate both-valid statistics (for differences and overall counts)
+    both_valid_agg_dict = {
+        'baysian_distance_adaptive_diff': ['mean', 'std'],
+        'baysian_distance_nonadaptive_diff': ['mean', 'std'],
+        'theta': 'first'
+    }
+    
+    both_valid_aggregated = df_both_valid.groupby(agg_columns).agg(both_valid_agg_dict).round(4)
+    both_valid_aggregated.columns = ['_'.join(col).strip() for col in both_valid_aggregated.columns]
     
     # Add count columns
-    adaptive_counts = df_numeric.groupby(agg_columns).size()
-    aggregated['baysian_distance_adaptive_count'] = adaptive_counts
+    adaptive_test_counts = df_adaptive.groupby(agg_columns).size()
+    nonadaptive_test_counts = df_nonadaptive.groupby(agg_columns).size()
+    both_valid_test_counts = df_both_valid.groupby(agg_columns).size()
     
-    nonadaptive_counts = df_numeric.groupby(agg_columns).size()
-    aggregated['baysian_distance_nonadaptive_count'] = nonadaptive_counts
+    # Calculate pass rates (only on valid tests for each method)
+    adaptive_pass_rates = df_adaptive.groupby(agg_columns)['pass_adaptive'].mean()
+    nonadaptive_pass_rates = df_nonadaptive.groupby(agg_columns)['pass_nonadaptive'].mean()
     
-    # Calculate pass rates
-    adaptive_pass_rates = df_numeric.groupby(agg_columns)['pass_adaptive'].mean()
-    aggregated['pass_adaptive_mean'] = adaptive_pass_rates
-    
-    nonadaptive_pass_rates = df_numeric.groupby(agg_columns)['pass_nonadaptive'].mean()
-    aggregated['pass_nonadaptive_mean'] = nonadaptive_pass_rates
+    # Combine all aggregations
+    aggregated = pd.concat([
+        adaptive_aggregated,
+        nonadaptive_aggregated,
+        both_valid_aggregated,
+        adaptive_test_counts.rename('n_tests_adaptive'),
+        nonadaptive_test_counts.rename('n_tests_nonadaptive'),
+        both_valid_test_counts.rename('n_tests_both_valid'),
+        adaptive_pass_rates.rename('pass_adaptive_mean'),
+        nonadaptive_pass_rates.rename('pass_nonadaptive_mean')
+    ], axis=1)
     
     # Rename columns for clarity
     column_mapping = {
-        'baysian_distance_adaptive_count': 'n_tests_adaptive',
+        'n_tests_adaptive': 'n_tests_adaptive',
+        'n_tests_nonadaptive': 'n_tests_nonadaptive',
+        'n_tests_both_valid': 'n_tests_both_valid',
         'baysian_distance_adaptive_mean': 'mean_baysian_distance_adaptive',
         'baysian_distance_adaptive_std': 'std_baysian_distance_adaptive',
-        'baysian_distance_nonadaptive_count': 'n_tests_nonadaptive',
         'baysian_distance_nonadaptive_mean': 'mean_baysian_distance_nonadaptive',
         'baysian_distance_nonadaptive_std': 'std_baysian_distance_nonadaptive',
         'pass_adaptive_mean': 'adaptive_pass_percentage',
@@ -623,8 +669,9 @@ def aggregate_test_results(df_or_csv, output_csv=None, include_config_summary=Fa
     # Show top 10 configurations by adaptive pass percentage
     print("\nTop 10 Configurations by Adaptive Pass Percentage:")
     top_configs = aggregated.nlargest(10, 'adaptive_pass_percentage')
-    display_cols = ['preset_name', 'n_tests_adaptive', 'n_tests_nonadaptive', 'adaptive_pass_percentage', 
-                   'nonadaptive_pass_percentage', 'mean_baysian_distance_adaptive', 'std_baysian_distance_adaptive',
+    display_cols = ['preset_name', 'n_tests_adaptive', 'n_tests_nonadaptive', 'n_tests_both_valid', 
+                   'adaptive_pass_percentage', 'nonadaptive_pass_percentage', 
+                   'mean_baysian_distance_adaptive', 'std_baysian_distance_adaptive',
                    'mean_reference_baysian_distance_adaptive', 'std_reference_baysian_distance_adaptive',
                    'mean_adaptive_diff', 'std_adaptive_diff', 'mean_adaptive_runtime', 'mean_nonadaptive_runtime']
     
@@ -702,67 +749,364 @@ def create_visualizations(df, config_summary, ranking, best_configs_df):
     
     return fig
 
-def main():
-    parser = argparse.ArgumentParser(description="Analyze adaptive vs non-adaptive test results")
-    parser.add_argument("csv_file", help="Path to the combined results CSV file")
-    parser.add_argument("--no-viz", action="store_true", help="Skip creating visualizations")
-    parser.add_argument("--aggregate", action="store_true", help="Create aggregated results by configuration")
-    parser.add_argument("--plot", choices=['n', 'step_size', 'adaptive_step_divisor'], 
-                       help="Create dependency plots for specified parameter")
-    parser.add_argument("--y-metric", choices=['adaptive_pass_percentage', 'nonadaptive_pass_percentage', 
-                                              'mean_baysian_distance_adaptive', 'mean_baysian_distance_nonadaptive',
-                                              'mean_adaptive_diff', 'mean_nonadaptive_diff'],
-                       help="Y-axis metric for dependency plots")
-    parser.add_argument("--fixed-params", type=str, 
-                       help="Fixed parameters as JSON string, e.g., '{\"step_size\": 0.1, \"adaptive_step_divisor\": 10}'")
+def plot_by_preset(df_or_csv, y_metric, step_size=0.1, adaptive_step_divisor=0.1, n=40000, output_file=None):
+    """
+    Plot dependency of y_metric on variation_value for each parameter, organized by preset.
     
-    args = parser.parse_args()
+    Creates a multi-panel plot showing the dependency of y_metric on variation_value 
+    for each preset and parameter, comparing adaptive vs non-adaptive methods.
     
-    # Load and analyze data
-    df = load_and_clean_data(args.csv_file)
-    config_summary = configuration_summary(df)
-    ranking = rank_configurations(config_summary, df)
-    best_configs_df = best_configuration_per_preset(df)
-    param_analysis = parameter_sensitivity_analysis(df)
-    variation_analysis, param_variation = variation_size_analysis(df)
-    step_size_effect, n_effect, divisor_effect = parameter_effect_analysis(df)
-    runtime_summary = runtime_analysis(df)
+    Note: Color intensity and text annotations show the number of tests used for each data point.
+          - Darker/more opaque points indicate more tests (higher statistical reliability)
+          - Text annotations show exact test counts (n=X) for every other point to avoid clutter
+          - Both visual cues help assess the statistical reliability of each measurement.
     
-    # Create aggregated results if requested
-    if args.aggregate:
-        aggregated_df = aggregate_test_results(df, 'aggregated_test_results.csv', include_config_summary=True)
-    
-    # Create visualizations
-    if not args.no_viz:
-        create_visualizations(df, config_summary, ranking, best_configs_df)
-    
-    # Save summary to CSV
-    config_summary.to_csv('configuration_summary.csv')
-    ranking.to_csv('configuration_ranking.csv')
-    best_configs_df.to_csv('best_configuration_per_preset.csv')
-    param_analysis.to_csv('parameter_sensitivity.csv')
-    variation_analysis.to_csv('variation_analysis.csv')
-    step_size_effect.to_csv('step_size_effect.csv')
-    n_effect.to_csv('n_effect.csv')
-    divisor_effect.to_csv('adaptive_step_divisor_effect.csv')
-    runtime_summary.to_csv('runtime_analysis.csv')
-    
-    print("\n" + "="*80)
-    print("SUMMARY FILES SAVED")
+    Args:
+        df_or_csv: Either a pandas DataFrame or path to CSV file
+        y_metric (str): Metric to plot on y-axis. Can be:
+                       - 'pass_percentage': Shows pass percentages for adaptive vs non-adaptive
+                       - 'mean_distance': Shows mean Bayesian distances for adaptive vs non-adaptive
+                       - 'mean_runtime': Shows mean runtime for adaptive vs non-adaptive
+                       - 'mean_diff': Shows mean differences from reference for adaptive vs non-adaptive
+        step_size (float): Step size parameter to filter data (default: 0.1)
+        adaptive_step_divisor (float): Adaptive step divisor parameter to filter data (default: 0.1)
+        n (int): N parameter to filter data (default: 40000)
+        output_file (str): Optional path to save the plot
+        
+    Returns:
+        matplotlib.figure.Figure: The created figure
+    """
+    print(f"\n" + "="*80)
+    print(f"PLOTTING {y_metric} BY PRESET")
+    print(f"Parameters: step_size={step_size}, adaptive_step_divisor={adaptive_step_divisor}, n={n}")
     print("="*80)
-    print("configuration_summary.csv - Overall configuration performance")
-    print("configuration_ranking.csv - Ranked configurations")
-    print("best_configuration_per_preset.csv - Best configuration for each preset")
-    print("parameter_sensitivity.csv - Parameter sensitivity analysis")
-    print("variation_analysis.csv - Variation size analysis")
-    print("step_size_effect.csv - Effect of step_size on test results")
-    print("n_effect.csv - Effect of n on test results")
-    print("adaptive_step_divisor_effect.csv - Effect of adaptive_step_divisor on test results")
-    print("runtime_analysis.csv - Runtime performance analysis")
-    if args.aggregate:
-        print("aggregated_test_results.csv - Aggregated results by configuration")
-    if not args.no_viz:
-        print("test_results_analysis.png - Visualizations")
+    
+    # Load data if CSV path is provided
+    if isinstance(df_or_csv, str):
+        print(f"Loading data from: {df_or_csv}")
+        df = pd.read_csv(df_or_csv)
+    else:
+        df = df_or_csv.copy()
+    
+    # Validate y_metric
+    valid_y_metrics = ['pass_percentage', 'mean_distance', 'mean_runtime', 'mean_diff']
+    if y_metric not in valid_y_metrics:
+        raise ValueError(f"y_metric must be one of {valid_y_metrics}")
+    
+    # Map y_metric to specific columns
+    metric_mapping = {
+        'pass_percentage': {
+            'adaptive': 'adaptive_pass_percentage',
+            'nonadaptive': 'nonadaptive_pass_percentage'
+        },
+        'mean_distance': {
+            'adaptive': 'mean_baysian_distance_adaptive',
+            'nonadaptive': 'mean_baysian_distance_nonadaptive'
+        },
+        'mean_runtime': {
+            'adaptive': 'mean_adaptive_runtime',
+            'nonadaptive': 'mean_nonadaptive_runtime'
+        },
+        'mean_diff': {
+            'adaptive': 'mean_adaptive_diff',
+            'nonadaptive': 'mean_nonadaptive_diff'
+        }
+    }
+    
+    # Filter data based on specified parameters
+    filtered_df = df.copy()
+    
+    # Filter by step_size
+    try:
+        numeric_step_size = float(step_size)
+        filtered_df = filtered_df[filtered_df['step_size'] == numeric_step_size]
+    except (ValueError, TypeError):
+        filtered_df = filtered_df[filtered_df['step_size'].astype(str) == str(step_size)]
+    
+    # Filter by adaptive_step_divisor
+    try:
+        numeric_divisor = float(adaptive_step_divisor)
+        filtered_df = filtered_df[filtered_df['adaptive_step_divisor'] == numeric_divisor]
+    except (ValueError, TypeError):
+        filtered_df = filtered_df[filtered_df['adaptive_step_divisor'].astype(str) == str(adaptive_step_divisor)]
+    
+    # Filter by n
+    try:
+        numeric_n = int(n) if '.' not in str(n) else float(n)
+        filtered_df = filtered_df[filtered_df['n'] == numeric_n]
+    except (ValueError, TypeError):
+        filtered_df = filtered_df[filtered_df['n'].astype(str) == str(n)]
+    
+    print(f"Filtered data shape: {filtered_df.shape}")
+    
+    # Check if we have any data after filtering
+    if filtered_df.empty:
+        print("Warning: No data found with the specified parameters!")
+        print(f"Available values:")
+        print(f"  step_size: {sorted(df['step_size'].unique())}")
+        print(f"  adaptive_step_divisor: {sorted(df['adaptive_step_divisor'].unique())}")
+        print(f"  n: {sorted(df['n'].unique())}")
+        return None
+    
+    # Get unique values
+    presets = sorted(filtered_df['preset_name'].unique())
+    param_variations = sorted(filtered_df['parameter_varied'].unique())
+    variation_values = sorted(filtered_df['variation_value'].unique())
+    
+    print(f"Presets: {presets}")
+    print(f"Parameter variations: {param_variations}")
+    print(f"Variation values: {variation_values}")
+    
+    # Create figure with subplots (n_presets rows, n_params columns - one for each parameter)
+    n_presets = len(presets)
+    n_params = len(param_variations)
+    fig, axes = plt.subplots(n_presets, n_params, figsize=(4*n_params, 3*n_presets))
+    
+    # Handle single preset case
+    if n_presets == 1:
+        axes = axes.reshape(1, -1)
+    
+    # Handle single parameter case
+    if n_params == 1:
+        axes = axes.reshape(-1, 1)
+    
+    fig.suptitle(f'{y_metric.replace("_", " ").title()} vs Variation Value by Preset and Parameter\n(step_size={step_size}, adaptive_step_divisor={adaptive_step_divisor}, n={n})', 
+                 fontsize=16, y=0.95)
+    
+    # Define colors and markers for different methods
+    colors = {'adaptive': 'blue', 'nonadaptive': 'red'}
+    markers = {'adaptive': 'o', 'nonadaptive': 's'}
+    labels = {'adaptive': 'Adaptive', 'nonadaptive': 'Non-Adaptive'}
+    
+    # Store all legend handles and labels for a single legend
+    all_handles = []
+    all_labels = []
+    test_handles = []
+    test_labels = []
+    
+    # Plot for each preset (row)
+    for preset_idx, preset in enumerate(presets):
+        # Filter data for this preset
+        preset_data = filtered_df[filtered_df['preset_name'] == preset]
+        
+        # Plot for each parameter (column)
+        for param_idx, param_varied in enumerate(param_variations):
+            ax = axes[preset_idx, param_idx]
+            
+            # Create secondary y-axis for test counts
+            ax2 = ax.twinx()
+            
+            # Filter data for this parameter
+            param_data = preset_data[preset_data['parameter_varied'] == param_varied]
+            
+            # Debug: Print data info for this subplot
+            print(f"Subplot [{preset_idx}, {param_idx}]: {preset} - {param_varied}")
+            print(f"  Data points: {len(param_data)}")
+            if len(param_data) > 0:
+                print(f"  Variation values: {sorted(param_data['variation_value'].unique())}")
+                print(f"  Available columns: {[col for col in param_data.columns if 'pass' in col or 'distance' in col or 'runtime' in col]}")
+            else:
+                print(f"  No data found for this combination")
+            
+            if not param_data.empty:
+                # Plot each method (non-adaptive first, then adaptive so adaptive appears on top)
+                for method_type in ['nonadaptive', 'adaptive']:
+                    metric_col = metric_mapping[y_metric][method_type]
+                    
+                    print(f"    Method: {method_type}, Metric column: {metric_col}")
+                    print(f"    Column exists: {metric_col in param_data.columns}")
+                    
+                    if metric_col in param_data.columns:
+                        x_values = param_data['variation_value'].values
+                        y_values = param_data[metric_col].values
+                        
+                        # Handle 'ERROR' values and convert to numeric
+                        if y_metric in ['mean_distance', 'mean_runtime', 'mean_diff']:
+                            # Convert to numeric, replacing 'ERROR' with NaN
+                            y_values = pd.to_numeric(y_values, errors='coerce')
+                        
+                        # Handle inf and -inf values
+                        y_values_plot = y_values.copy()
+                        if np.any(np.isinf(y_values)) or np.any(np.isneginf(y_values)):
+                            all_y_finite = y_values[np.isfinite(y_values)]
+                            if len(all_y_finite) > 0:
+                                y_max = np.max(all_y_finite)
+                                y_min = np.min(all_y_finite)
+                                y_values_plot[np.isinf(y_values)] = y_max * 1.1
+                                y_values_plot[np.isneginf(y_values)] = y_min * 1.1
+                        
+                        # Sort data by x-values
+                        sort_indices = np.argsort(x_values)
+                        x_values_sorted = x_values[sort_indices]
+                        y_values_sorted = y_values_plot[sort_indices]
+                        
+                        # Filter out NaN values
+                        valid_mask = ~np.isnan(y_values_sorted)
+                        x_valid = x_values_sorted[valid_mask]
+                        y_valid = y_values_sorted[valid_mask]
+                        
+                        print(f"      Valid data points: {len(x_valid)}")
+                        if len(x_valid) > 0:
+                            print(f"      X values: {x_valid}")
+                            print(f"      Y values: {y_valid}")
+                        
+                        if len(x_valid) > 0:
+                            # Plot points and line
+                            line, = ax.plot(x_valid, y_valid, 
+                                           marker=markers[method_type], color=colors[method_type], 
+                                           linestyle='-', label=f'{labels[method_type]}',
+                                           alpha=0.8, markersize=8, linewidth=2)
+                            
+                            # Plot test counts on secondary y-axis
+                            test_count_col = f'n_tests_{method_type}'
+                            if test_count_col in param_data.columns:
+                                test_counts = param_data[test_count_col].values
+                                test_counts_sorted = test_counts[sort_indices]
+                                test_counts_valid = test_counts_sorted[valid_mask]
+                                
+                                # Plot test counts as dashed lines on secondary axis
+                                test_line, = ax2.plot(x_valid, test_counts_valid, 
+                                                     color=colors[method_type], linestyle='--', 
+                                                     alpha=0.3, linewidth=1,
+                                                     label=f'{labels[method_type]} Tests')
+                                
+                                # Store test count handles for legend
+                                test_label = f'{labels[method_type]} Tests'
+                                if test_label not in test_labels:
+                                    test_handles.append(test_line)
+                                    test_labels.append(test_label)
+                            
+                            # Store handle and label for legend (only once per method)
+                            legend_label = f'{labels[method_type]}'
+                            if legend_label not in all_labels:
+                                all_handles.append(line)
+                                all_labels.append(legend_label)
+            
+            # Customize subplot
+            ax.set_xlabel('Variation Value')
+            if param_idx == 0:  # Only show y-label for leftmost panels
+                ax.set_ylabel(y_metric.replace('_', ' ').title())
+            ax.set_title(f'{preset} - {param_varied}')
+            ax.grid(True, alpha=0.3)
+            
+            # Customize secondary y-axis
+            ax2.set_ylabel('Number of Tests', color='gray', fontsize=8)
+            ax2.tick_params(axis='y', labelcolor='gray', labelsize=8)
+            ax2.grid(False)  # No grid for secondary axis
+    
+    # Create a single legend for all panels
+    if all_handles or test_handles:
+        # Combine main metrics and test counts
+        combined_handles = all_handles + test_handles
+        combined_labels = all_labels + test_labels
+        
+        fig.legend(combined_handles, combined_labels, loc='upper center', bbox_to_anchor=(0.5, 0.02), 
+                  ncol=len(combined_labels), fancybox=True, shadow=True, fontsize=10)
+    
+    # Adjust layout
+    plt.subplots_adjust(top=0.9, bottom=0.15, left=0.05, right=0.95, hspace=0.4, wspace=0.3)
+    
+    # Save plot if output file is specified
+    if output_file:
+        plt.savefig(output_file, dpi=300, bbox_inches='tight')
+        print(f"Plot saved to: {output_file}")
+    
+    return fig
 
-if __name__ == "__main__":
-    main()
+def example_usage():
+    """
+    Example usage of the analysis functions.
+    """
+    print("Example usage of analyze_test_results.py functions:")
+    print("\n1. Load and analyze data:")
+    print("   df = load_and_clean_data('combined_results.csv')")
+    print("   config_summary = configuration_summary(df)")
+    print("   ranking = rank_configurations(config_summary, df)")
+    
+    print("\n2. Create aggregated results:")
+    print("   aggregated_df = aggregate_test_results(df, 'aggregated_results.csv', include_config_summary=True)")
+    
+    print("\n3. Create plots by preset:")
+    print("   # Plot pass percentages")
+    print("   fig1 = plot_by_preset(df, 'pass_percentage', step_size=0.1, adaptive_step_divisor=0.1, n=40000)")
+    print("   ")
+    print("   # Plot mean Bayesian distances")
+    print("   fig2 = plot_by_preset(df, 'mean_distance', step_size=0.1, adaptive_step_divisor=0.1, n=40000)")
+    print("   ")
+    print("   # Plot mean runtime")
+    print("   fig3 = plot_by_preset(df, 'mean_runtime', step_size=0.1, adaptive_step_divisor=0.1, n=40000)")
+    print("   ")
+    print("   # Plot mean differences from reference")
+    print("   fig4 = plot_by_preset(df, 'mean_diff', step_size=0.1, adaptive_step_divisor=0.1, n=40000)")
+    
+    print("\n4. Available y_metric options:")
+    print("   - 'pass_percentage': Shows pass percentages for adaptive vs non-adaptive")
+    print("   - 'mean_distance': Shows mean Bayesian distances for adaptive vs non-adaptive")
+    print("   - 'mean_runtime': Shows mean runtime for adaptive vs non-adaptive")
+    print("   - 'mean_diff': Shows mean differences from reference for adaptive vs non-adaptive")
+
+
+# def main():
+#     parser = argparse.ArgumentParser(description="Analyze adaptive vs non-adaptive test results")
+#     parser.add_argument("csv_file", help="Path to the combined results CSV file")
+#     parser.add_argument("--no-viz", action="store_true", help="Skip creating visualizations")
+#     parser.add_argument("--aggregate", action="store_true", help="Create aggregated results by configuration")
+#     parser.add_argument("--plot", choices=['n', 'step_size', 'adaptive_step_divisor'], 
+#                        help="Create dependency plots for specified parameter")
+#     parser.add_argument("--y-metric", choices=['adaptive_pass_percentage', 'nonadaptive_pass_percentage', 
+#                                               'mean_baysian_distance_adaptive', 'mean_baysian_distance_nonadaptive',
+#                                               'mean_adaptive_diff', 'mean_nonadaptive_diff'],
+#                        help="Y-axis metric for dependency plots")
+#     parser.add_argument("--fixed-params", type=str, 
+#                        help="Fixed parameters as JSON string, e.g., '{\"step_size\": 0.1, \"adaptive_step_divisor\": 10}'")
+    
+#     args = parser.parse_args()
+    
+#     # Load and analyze data
+#     df = load_and_clean_data(args.csv_file)
+#     config_summary = configuration_summary(df)
+#     ranking = rank_configurations(config_summary, df)
+#     best_configs_df = best_configuration_per_preset(df)
+#     param_analysis = parameter_sensitivity_analysis(df)
+#     variation_analysis, param_variation = variation_size_analysis(df)
+#     step_size_effect, n_effect, divisor_effect = parameter_effect_analysis(df)
+#     runtime_summary = runtime_analysis(df)
+    
+#     # Create aggregated results if requested
+#     if args.aggregate:
+#         aggregated_df = aggregate_test_results(df, 'aggregated_test_results.csv', include_config_summary=True)
+    
+#     # Create visualizations
+#     if not args.no_viz:
+#         create_visualizations(df, config_summary, ranking, best_configs_df)
+    
+#     # Save summary to CSV
+#     config_summary.to_csv('configuration_summary.csv')
+#     ranking.to_csv('configuration_ranking.csv')
+#     best_configs_df.to_csv('best_configuration_per_preset.csv')
+#     param_analysis.to_csv('parameter_sensitivity.csv')
+#     variation_analysis.to_csv('variation_analysis.csv')
+#     step_size_effect.to_csv('step_size_effect.csv')
+#     n_effect.to_csv('n_effect.csv')
+#     divisor_effect.to_csv('adaptive_step_divisor_effect.csv')
+#     runtime_summary.to_csv('runtime_analysis.csv')
+    
+#     print("\n" + "="*80)
+#     print("SUMMARY FILES SAVED")
+#     print("="*80)
+#     print("configuration_summary.csv - Overall configuration performance")
+#     print("configuration_ranking.csv - Ranked configurations")
+#     print("best_configuration_per_preset.csv - Best configuration for each preset")
+#     print("parameter_sensitivity.csv - Parameter sensitivity analysis")
+#     print("variation_analysis.csv - Variation size analysis")
+#     print("step_size_effect.csv - Effect of step_size on test results")
+#     print("n_effect.csv - Effect of n on test results")
+#     print("adaptive_step_divisor_effect.csv - Effect of adaptive_step_divisor on test results")
+#     print("runtime_analysis.csv - Runtime performance analysis")
+#     if args.aggregate:
+#         print("aggregated_test_results.csv - Aggregated results by configuration")
+#     if not args.no_viz:
+#         print("test_results_analysis.png - Visualizations")
+
+# if __name__ == "__main__":
+#     main()
