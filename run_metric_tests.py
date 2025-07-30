@@ -49,7 +49,9 @@ def main():
     adaptive_step_divisors = [0.1, 0.2, 0.5]
     time_units = ['days']
     n_values = [20000, 40000]
-    variations = [0.8, 0.9, 0.95, 0.98, 1.02, 1.05, 1.1, 1.2]
+    # variations = [0.8, 0.9, 0.95, 0.98, 1.02, 1.05, 1.1, 1.2]
+    variations = [0.6, 0.7, 0.8, 0.9, 1.1, 1.2, 1.3, 1.4]
+
     
     n_repeats = 10
 

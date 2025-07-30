@@ -18,7 +18,7 @@ def main():
     n_jobs = 1440
     job_name = 'speedTests'
     memory = '0.8'
-    folder = 'SpeedTests/metric_tests'
+    folder = 'metric_tests_coarse'
     name = 'test_metrics'
     run_file = 'SpeedTests/run_tests.csh'
     queue = 'short'
