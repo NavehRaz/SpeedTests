@@ -87,7 +87,7 @@ def test_adaptive_vs_nonadaptive_with_params(preset_name, n=40000, variations=[0
             time_step_multiplier=time_step_multiplier, 
             parallel=parallel,
             adaptive=False,
-            step_size=step_size
+            # step_size=step_size
         )
         blue_reference_runtime = time.time() - start_time
         
@@ -104,7 +104,7 @@ def test_adaptive_vs_nonadaptive_with_params(preset_name, n=40000, variations=[0
             time_step_multiplier=time_step_multiplier, 
             parallel=parallel,
             adaptive=True,
-            step_size=step_size/adaptive_step_divisor
+            # step_size=step_size/adaptive_step_divisor
         )
         sim_adaptive_runtime = time.time() - start_time
         
@@ -121,7 +121,7 @@ def test_adaptive_vs_nonadaptive_with_params(preset_name, n=40000, variations=[0
             time_step_multiplier=time_step_multiplier, 
             parallel=parallel,
             adaptive=False,
-            step_size=step_size
+            # step_size=step_size
         )
         sim_nonadaptive_runtime = time.time() - start_time
         
@@ -160,7 +160,7 @@ def test_adaptive_vs_nonadaptive_with_params(preset_name, n=40000, variations=[0
                         time_step_multiplier=time_step_multiplier, 
                         parallel=parallel,
                         adaptive=True,
-                        step_size=step_size/adaptive_step_divisor
+                        # step_size=step_size/adaptive_step_divisor
                     )
                     runtime_adaptive = time.time() - start_time
                     
@@ -176,7 +176,7 @@ def test_adaptive_vs_nonadaptive_with_params(preset_name, n=40000, variations=[0
                         time_step_multiplier=time_step_multiplier, 
                         parallel=parallel,
                         adaptive=False,
-                        step_size=step_size
+                        #step_size=step_size
                     )
                     runtime_nonadaptive = time.time() - start_time
                     
